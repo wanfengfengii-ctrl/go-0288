@@ -191,6 +191,12 @@ func (s *Service) Terminate(ctx context.Context, id domain.PileID, req domain.De
 		if qualified < 2 || approvals < 2 {
 			return domain.TerminalRecord{}, domain.NewError(domain.CodeDesignMismatch, "two qualified approvals are required for acceptance")
 		}
+		// Acceptance may not produce a terminal credential until the integrity
+		// evidence is closed: the pile must have reached the inspected stage and
+		// the current generation's re-inspection conclusion must be resolved.
+		if err := requireClosedIntegrity(ctx, tx, id, task); err != nil {
+			return domain.TerminalRecord{}, err
+		}
 	} else if qualified < 1 {
 		return domain.TerminalRecord{}, domain.NewError(domain.CodeDesignMismatch, "a qualified reviewer is required")
 	}
@@ -215,6 +221,27 @@ func (s *Service) Terminate(ctx context.Context, id domain.PileID, req domain.De
 		return domain.TerminalRecord{}, err
 	}
 	return rec, nil
+}
+
+// requireClosedIntegrity enforces that acceptance may only produce a terminal
+// credential once the integrity evidence chain is closed. The pile must have
+// advanced to the inspected stage (the pour finished, the curing age reached
+// and an inspection generation opened), and the current generation's
+// re-inspection conclusion must be resolved: "pass" (no anomaly) or "closed"
+// (anomalies cleared by coring). A pending "reinspect" or an unset conclusion
+// means closure has not been reached.
+func requireClosedIntegrity(ctx context.Context, tx *store.Tx, id domain.PileID, task domain.PileTask) error {
+	if task.Stage != domain.StageInspected {
+		return domain.NewError(domain.CodeGenerationConflict, "acceptance requires closed integrity evidence")
+	}
+	gen, err := tx.GetGeneration(ctx, id, task.Generation)
+	if err != nil {
+		return err
+	}
+	if gen.Conclusion != "pass" && gen.Conclusion != "closed" {
+		return domain.NewError(domain.CodeGenerationConflict, "acceptance requires closed integrity evidence")
+	}
+	return nil
 }
 
 // Terminal returns the existing terminal record, if any.
