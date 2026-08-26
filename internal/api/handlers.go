@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 
@@ -107,7 +106,7 @@ func (s *Server) handleStartPour(w http.ResponseWriter, r *http.Request) {
 	if req.OperationID == "" {
 		req.OperationID = idempotencyKey(r)
 	}
-	if err := s.svc.Trace.StartPour(context.Background(), domain.PileID(r.PathValue("id")), req); err != nil {
+	if err := s.svc.Trace.StartPour(r.Context(), domain.PileID(r.PathValue("id")), req); err != nil {
 		writeError(w, err)
 		return
 	}
