@@ -94,31 +94,6 @@ func (s *Service) Integrity(ctx context.Context, id domain.PileID, req domain.In
 // CoreResult records core-sampling results, resolving the re-inspection set for
 // the current generation.
 func (s *Service) CoreResult(ctx context.Context, id domain.PileID, req domain.CoreRequest) error {
-	readTx, err := s.begin(ctx)
-	if err != nil {
-		return err
-	}
-	taskForLease, err := readTx.GetTask(ctx, id)
-	if err != nil {
-		_ = readTx.Rollback()
-		return err
-	}
-	if err := readTx.Rollback(); err != nil {
-		return err
-	}
-
-	leaseTx, err := s.begin(ctx)
-	if err != nil {
-		return err
-	}
-	if _, err := acquireLease(leaseTx, ctx, id, req.Device, taskForLease.LastTime); err != nil {
-		_ = leaseTx.Rollback()
-		return err
-	}
-	if err := leaseTx.Commit(); err != nil {
-		return err
-	}
-
 	tx, err := s.begin(ctx)
 	if err != nil {
 		return err
@@ -134,6 +109,13 @@ func (s *Service) CoreResult(ctx context.Context, id domain.PileID, req domain.C
 	}
 	if req.Generation != task.Generation {
 		return domain.NewError(domain.CodeGenerationConflict, "core result generation does not match")
+	}
+	// Confirm the coring-rig lease inside the same transaction and only after
+	// the generation check. An invalid generation must not leave a lease behind
+	// (invariant 6): the lease, evidence and generation update commit together or
+	// not at all, so a rejected request never occupies the device on retry.
+	if _, err := acquireLease(tx, ctx, id, req.Device, task.LastTime); err != nil {
+		return err
 	}
 	for _, f := range req.Findings {
 		if err := tx.InsertEvidence(ctx, id, domain.InspectionEvidence{
