@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 
 	"deep-pile-pour-integrity-closure/internal/domain"
 	"deep-pile-pour-integrity-closure/internal/store"
@@ -63,12 +64,58 @@ func (s *Service) Retry(ctx context.Context, id domain.PileID, callID string, re
 	}
 
 	if code, failed := mapDeviceOutcome(req.Outcome); !failed {
-		// Device recovered: archive the reading as valid evidence and resolve.
-		if err := tx.InsertEvidence(ctx, id, domain.InspectionEvidence{
-			Type: domain.EvidenceCore, Range: domain.DepthRange{Start: 0, End: 0},
-			Value: req.Reading, DeviceCallID: callID, Time: req.Time, Generation: 1, Valid: true,
-		}); err != nil {
-			return err
+		// Device recovered. Complete the deferred operation the retry stood in
+		// for, mirroring that operation's success path so the trace and last
+		// logical time advance exactly as if the device had answered on the
+		// first attempt (failure boundary 7: no state advance on failure; the
+		// success path must therefore advance on recovery).
+		switch rc.Request {
+		case "sounding-line":
+			task, err := tx.GetTask(ctx, id)
+			if err != nil {
+				return err
+			}
+			conduit, err := tx.GetConduit(ctx, id)
+			if err != nil {
+				return err
+			}
+			prev, ok, err := tx.LastTrace(ctx, id)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return domain.NewError(domain.CodePourInterrupted, "pour has not started")
+			}
+			if req.Time <= prev.Time {
+				return domain.NewError(domain.CodePourInterrupted, "logical time must strictly increase")
+			}
+			seq, err := tx.NextTraceSeq(ctx, id)
+			if err != nil {
+				return err
+			}
+			entry := domain.PourTraceEntry{
+				Seq: seq, OperationID: strings.TrimSuffix(callID, "-call"), Time: req.Time,
+				EventType: domain.PourLevelReading, TotalLitres: prev.TotalLitres,
+				TheoryLevel: prev.TheoryLevel, MeasuredLevel: req.Reading,
+				ConduitPrefix: conduit.ActivePrefix, Embedment: conduit.BottomDepth - prev.TheoryLevel,
+				Overpour: prev.Overpour,
+			}
+			if err := tx.InsertTrace(ctx, id, entry); err != nil {
+				return err
+			}
+			task.LastTime = req.Time
+			if err := tx.UpdateTask(ctx, task, task.Version); err != nil {
+				return err
+			}
+		default:
+			// Non-sounding retries (e.g. late core receipts) archive the
+			// reading as valid evidence without advancing the pour trace.
+			if err := tx.InsertEvidence(ctx, id, domain.InspectionEvidence{
+				Type: domain.EvidenceCore, Range: domain.DepthRange{Start: 0, End: 0},
+				Value: req.Reading, DeviceCallID: callID, Time: req.Time, Generation: 1, Valid: true,
+			}); err != nil {
+				return err
+			}
 		}
 		if err := tx.DeleteRetry(ctx, callID); err != nil {
 			return err
