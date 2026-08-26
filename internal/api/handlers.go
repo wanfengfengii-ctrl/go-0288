@@ -103,8 +103,14 @@ func (s *Server) handleStartPour(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorBody{Code: "BAD_REQUEST", Message: err.Error()})
 		return
 	}
-	if req.OperationID == "" {
-		req.OperationID = idempotencyKey(r)
+	// The Idempotency-Key header is the authoritative operation identifier for
+	// retry protection; it takes precedence over any operation id carried in the
+	// request body. Without this, a client reusing the same header key but
+	// altering the in-body operation id (or other content) would be treated as a
+	// distinct operation, bypassing idempotency and mutating state a second
+	// time instead of surfacing IDEMPOTENCY_CONFLICT.
+	if key := idempotencyKey(r); key != "" {
+		req.OperationID = key
 	}
 	if err := s.svc.Trace.StartPour(r.Context(), domain.PileID(r.PathValue("id")), req); err != nil {
 		writeError(w, err)
@@ -120,8 +126,14 @@ func (s *Server) handlePourEntry(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorBody{Code: "BAD_REQUEST", Message: err.Error()})
 		return
 	}
-	if req.OperationID == "" {
-		req.OperationID = idempotencyKey(r)
+	// The Idempotency-Key header is the authoritative operation identifier for
+	// retry protection; it takes precedence over any operation id carried in the
+	// request body. Without this, a client reusing the same header key but
+	// altering the in-body operation id (or other content) would be treated as a
+	// distinct operation, bypassing idempotency and mutating state a second
+	// time instead of surfacing IDEMPOTENCY_CONFLICT.
+	if key := idempotencyKey(r); key != "" {
+		req.OperationID = key
 	}
 	if err := s.svc.Trace.PourEntry(r.Context(), domain.PileID(r.PathValue("id")), req); err != nil {
 		writeError(w, err)
@@ -137,8 +149,14 @@ func (s *Server) handleLevelReading(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorBody{Code: "BAD_REQUEST", Message: err.Error()})
 		return
 	}
-	if req.OperationID == "" {
-		req.OperationID = idempotencyKey(r)
+	// The Idempotency-Key header is the authoritative operation identifier for
+	// retry protection; it takes precedence over any operation id carried in the
+	// request body. Without this, a client reusing the same header key but
+	// altering the in-body operation id (or other content) would be treated as a
+	// distinct operation, bypassing idempotency and mutating state a second
+	// time instead of surfacing IDEMPOTENCY_CONFLICT.
+	if key := idempotencyKey(r); key != "" {
+		req.OperationID = key
 	}
 	if err := s.svc.Trace.LevelReading(r.Context(), domain.PileID(r.PathValue("id")), req); err != nil {
 		writeError(w, err)
@@ -154,8 +172,14 @@ func (s *Server) handleRemoveSegments(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorBody{Code: "BAD_REQUEST", Message: err.Error()})
 		return
 	}
-	if req.OperationID == "" {
-		req.OperationID = idempotencyKey(r)
+	// The Idempotency-Key header is the authoritative operation identifier for
+	// retry protection; it takes precedence over any operation id carried in the
+	// request body. Without this, a client reusing the same header key but
+	// altering the in-body operation id (or other content) would be treated as a
+	// distinct operation, bypassing idempotency and mutating state a second
+	// time instead of surfacing IDEMPOTENCY_CONFLICT.
+	if key := idempotencyKey(r); key != "" {
+		req.OperationID = key
 	}
 	if err := s.svc.Trace.RemoveSegments(r.Context(), domain.PileID(r.PathValue("id")), req); err != nil {
 		writeError(w, err)
@@ -171,8 +195,14 @@ func (s *Server) handleFinishPour(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorBody{Code: "BAD_REQUEST", Message: err.Error()})
 		return
 	}
-	if req.OperationID == "" {
-		req.OperationID = idempotencyKey(r)
+	// The Idempotency-Key header is the authoritative operation identifier for
+	// retry protection; it takes precedence over any operation id carried in the
+	// request body. Without this, a client reusing the same header key but
+	// altering the in-body operation id (or other content) would be treated as a
+	// distinct operation, bypassing idempotency and mutating state a second
+	// time instead of surfacing IDEMPOTENCY_CONFLICT.
+	if key := idempotencyKey(r); key != "" {
+		req.OperationID = key
 	}
 	if err := s.svc.Trace.FinishPour(r.Context(), domain.PileID(r.PathValue("id")), req); err != nil {
 		writeError(w, err)
