@@ -130,6 +130,15 @@ CREATE TABLE IF NOT EXISTS idempotency (
 );
 INSERT OR IGNORE INTO schema_version (version) VALUES (0);
 `,
+	// v2: scope idempotency to (pile_id, operation_id) so the same
+	// Idempotency-Key reused on a different pile cannot replay another pile's
+	// result. Existing rows are backfilled with an empty pile_id so legacy
+	// single-pile records still match a same-key retry on that pile.
+	`
+ALTER TABLE idempotency ADD COLUMN pile_id TEXT NOT NULL DEFAULT '';
+DROP INDEX IF EXISTS idempotency_pile_op;
+CREATE UNIQUE INDEX IF NOT EXISTS idempotency_pile_op ON idempotency (pile_id, operation_id);
+`,
 }
 
 // migrate applies any pending migrations inside a transaction.

@@ -258,7 +258,10 @@ type ReviewGeneration struct {
 }
 
 // IdempotencyRecord stores the outcome of a previously executed operation.
+// Idempotency is scoped to (pile_id, operation_id) so that reusing the same
+// Idempotency-Key against a different pile never replays another pile's result.
 type IdempotencyRecord struct {
+	PileID        PileID
 	OperationID   string
 	RequestDigest string
 	SavedResult   string

@@ -49,8 +49,10 @@ func digest(v any) string {
 // idemResult runs a transactional mutation with optional idempotency. When
 // operationID is non-empty it guarantees at-most-once execution: a matching
 // prior digest returns the original result, a differing digest returns
-// IDEMPOTENCY_CONFLICT.
-func (s *Service) idemResult(ctx context.Context, operationID string, req any, fn func(tx *store.Tx) (string, error)) (string, error) {
+// IDEMPOTENCY_CONFLICT. Idempotency is scoped to (pileID, operationID) so
+// reusing the same Idempotency-Key against a different pile executes the
+// operation instead of replaying the other pile's saved result.
+func (s *Service) idemResult(ctx context.Context, pileID domain.PileID, operationID string, req any, fn func(tx *store.Tx) (string, error)) (string, error) {
 	d := digest(req)
 	tx, err := s.begin(ctx)
 	if err != nil {
@@ -59,7 +61,7 @@ func (s *Service) idemResult(ctx context.Context, operationID string, req any, f
 	defer tx.Rollback()
 
 	if operationID != "" {
-		rec, found, err := tx.GetIdempotency(ctx, operationID)
+		rec, found, err := tx.GetIdempotency(ctx, pileID, operationID)
 		if err != nil {
 			return "", err
 		}
@@ -77,7 +79,7 @@ func (s *Service) idemResult(ctx context.Context, operationID string, req any, f
 	}
 	if operationID != "" {
 		if err := tx.InsertIdempotency(ctx, domain.IdempotencyRecord{
-			OperationID: operationID, RequestDigest: d, SavedResult: result,
+			PileID: pileID, OperationID: operationID, RequestDigest: d, SavedResult: result,
 		}); err != nil {
 			return "", err
 		}

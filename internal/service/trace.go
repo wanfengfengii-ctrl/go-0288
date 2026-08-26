@@ -304,7 +304,7 @@ func deductBatch(tx *store.Tx, ctx context.Context, batchID string, litres int64
 
 // StartPour performs the first-pour base sealing atomically.
 func (s *Service) StartPour(ctx context.Context, id domain.PileID, req domain.StartPourRequest) error {
-	_, err := s.idemResult(ctx, req.OperationID, req, func(tx *store.Tx) (string, error) {
+	_, err := s.idemResult(ctx, id, req.OperationID, req, func(tx *store.Tx) (string, error) {
 		task, err := tx.GetTask(ctx, id)
 		if err != nil {
 			return "", err
@@ -374,7 +374,7 @@ func (s *Service) StartPour(ctx context.Context, id domain.PileID, req domain.St
 
 // PourEntry performs a continuous-pour increment.
 func (s *Service) PourEntry(ctx context.Context, id domain.PileID, req domain.PourRequest) error {
-	_, err := s.idemResult(ctx, req.OperationID, req, func(tx *store.Tx) (string, error) {
+	_, err := s.idemResult(ctx, id, req.OperationID, req, func(tx *store.Tx) (string, error) {
 		task, err := tx.GetTask(ctx, id)
 		if err != nil {
 			return "", err
@@ -456,7 +456,7 @@ func (s *Service) LevelReading(ctx context.Context, id domain.PileID, req domain
 		// Scripted sounding-line failure: record a retry, do not advance state.
 		return s.failDevice(ctx, id, req.OperationID, "sounding-line", req.DeviceOutcome, req.Time)
 	}
-	_, err := s.idemResult(ctx, req.OperationID, req, func(tx *store.Tx) (string, error) {
+	_, err := s.idemResult(ctx, id, req.OperationID, req, func(tx *store.Tx) (string, error) {
 		task, err := tx.GetTask(ctx, id)
 		if err != nil {
 			return "", err
@@ -506,7 +506,7 @@ func (s *Service) LevelReading(ctx context.Context, id domain.PileID, req domain
 // RemoveSegments removes trailing active conduit segments, preserving the
 // original assembly's contiguous prefix and the embedment range.
 func (s *Service) RemoveSegments(ctx context.Context, id domain.PileID, req domain.RemoveRequest) error {
-	_, err := s.idemResult(ctx, req.OperationID, req, func(tx *store.Tx) (string, error) {
+	_, err := s.idemResult(ctx, id, req.OperationID, req, func(tx *store.Tx) (string, error) {
 		task, err := tx.GetTask(ctx, id)
 		if err != nil {
 			return "", err
@@ -573,7 +573,7 @@ func (s *Service) RemoveSegments(ctx context.Context, id domain.PileID, req doma
 
 // FinishPour records pile-top finishing and closes the pour.
 func (s *Service) FinishPour(ctx context.Context, id domain.PileID, req domain.FinishRequest) error {
-	_, err := s.idemResult(ctx, req.OperationID, req, func(tx *store.Tx) (string, error) {
+	_, err := s.idemResult(ctx, id, req.OperationID, req, func(tx *store.Tx) (string, error) {
 		task, err := tx.GetTask(ctx, id)
 		if err != nil {
 			return "", err
