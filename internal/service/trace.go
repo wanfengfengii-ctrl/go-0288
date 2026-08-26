@@ -342,9 +342,9 @@ func (s *Service) StartPour(ctx context.Context, id domain.PileID, req domain.St
 			return "", domain.NewError(domain.CodeFirstPourInsufficient, "first pour does not embed the conduit base")
 		}
 		if embedment > design.Pour.MaxEmbedment {
-			if err := tx.Commit(); err != nil {
-				return "", err
-			}
+			// A rejected first pour must not consume material or hold a lease:
+			// roll back the batch deduction and lease acquisition by leaving the
+			// transaction uncommitted, mirroring the min-embedment path above.
 			return "", domain.NewError(domain.CodeEmbedmentOutOfRange, "conduit embedment exceeds the maximum")
 		}
 		seq, err := tx.NextTraceSeq(ctx, id)
