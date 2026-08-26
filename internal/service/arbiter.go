@@ -206,6 +206,14 @@ func (s *Service) Terminate(ctx context.Context, id domain.PileID, req domain.De
 		}
 		return domain.TerminalRecord{}, err
 	}
+	// Synchronise the terminal outcome onto the task so the task detail and the
+	// terminal query report the same state. The single-writer barrier above
+	// already determined the unique winner; the task carries that outcome.
+	task.Stage = domain.StageTerminal
+	task.Terminal = req.Type
+	if err := tx.UpdateTask(ctx, task, task.Version); err != nil {
+		return domain.TerminalRecord{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return domain.TerminalRecord{}, err
 	}
